@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Perplexity Explorer</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+
+<!-- Animated background -->
+<div class="bg-grid"></div>
+<div class="bg-glow glow-1"></div>
+<div class="bg-glow glow-2"></div>
+
+<!-- ===== HEADER ===== -->
+<header>
+  <div class="header-inner">
+    <div class="logo">
+      <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+        <circle cx="16" cy="16" r="14" stroke="url(#grad)" stroke-width="2"/>
+        <path d="M10 16 Q13 10 16 16 Q19 22 22 16" stroke="#00f5ff" stroke-width="2" fill="none" stroke-linecap="round"/>
+        <defs>
+          <linearGradient id="grad" x1="0" y1="0" x2="32" y2="32">
+            <stop offset="0%" stop-color="#00f5ff"/>
+            <stop offset="100%" stop-color="#7c3aed"/>
+          </linearGradient>
+        </defs>
+      </svg>
+      <span class="logo-text">Perplexity<span class="accent"> Explorer</span></span>
+    </div>
+    <div class="header-badges">
+      <span class="badge">AI-Powered</span>
+      <span class="badge badge-live" id="modelBadge">Model Not Loaded</span>
+    </div>
+  </div>
+</header>
+
+<!-- ===== MAIN ===== -->
+<main>
+
+  <!-- HERO -->
+  <section class="hero">
+    <h1 class="hero-title">Explore <span class="gradient-text">Token Probability</span><br/>& Perplexity in Real‑Time</h1>
+    <p class="hero-sub">Feed any sentence to a language model and watch it decompose into token probabilities, perplexity scores, and next-token predictions — all in your browser.</p>
+  </section>
+
+  <!-- INPUT CARD -->
+  <div class="card card-glow" id="inputCard">
+    <div class="card-header">
+      <div class="card-label"><span class="dot dot-cyan"></span>Input</div>
+      <select id="modelSelect" class="model-select">
+        <option value="Xenova/distilgpt2">DistilGPT-2 · Fast</option>
+        <option value="Xenova/gpt2">GPT-2 · Balanced</option>
+        <option value="Xenova/gpt2-large">GPT-2 Large · Accurate</option>
+      </select>
+    </div>
+    <textarea id="sentence" class="sentence-input" rows="3" placeholder="Type any sentence here… e.g. 'The capital of France is Paris'">I love Python</textarea>
+    <!-- Sample chips -->
+    <div class="chips">
+      <span class="chip" data-s="I love Python">I love Python</span>
+      <span class="chip" data-s="Python love I">Python love I</span>
+      <span class="chip" data-s="The capital of France is Paris">The capital of France is Paris</span>
+      <span class="chip" data-s="Machine learning is transforming the world">ML is transforming the world</span>
+    </div>
+    <div class="input-footer">
+      <div class="status-pill" id="statusPill">
+        <span class="status-dot" id="statusDot"></span>
+        <span id="status">Click Calculate to load the model</span>
+      </div>
+      <button class="btn-run" id="runBtn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5,3 19,12 5,21"/></svg>
+        Calculate Perplexity
+      </button>
+    </div>
+    <!-- Download progress bar -->
+    <div class="progress-bar-wrap" id="progressWrap" style="display:none">
+      <div class="progress-bar" id="progressBar"></div>
+    </div>
+  </div>
+
+  <!-- RESULT GRID (hidden until calculated) -->
+  <div class="results-grid" id="resultsGrid" style="display:none">
+
+    <!-- PERPLEXITY SCORE -->
+    <div class="card score-card" id="scoreCard">
+      <div class="card-label"><span class="dot dot-purple"></span>Perplexity Score</div>
+      <div class="score-number" id="scoreNumber">—</div>
+      <div class="score-desc" id="scoreDesc"></div>
+      <div class="score-meter-wrap">
+        <div class="score-meter" id="scoreMeter"></div>
+      </div>
+      <div class="score-meter-labels">
+        <span>0 (perfect)</span><span>Worse →</span>
+      </div>
+    </div>
+
+    <!-- STATS -->
+    <div class="card stats-card">
+      <div class="card-label"><span class="dot dot-cyan"></span>Quick Stats</div>
+      <div class="stat-row"><span>Tokens</span><span class="stat-val" id="statTokens">—</span></div>
+      <div class="stat-row"><span>Avg log prob</span><span class="stat-val" id="statAvgLog">—</span></div>
+      <div class="stat-row"><span>Min prob token</span><span class="stat-val" id="statMinTok">—</span></div>
+      <div class="stat-row"><span>Max prob token</span><span class="stat-val" id="statMaxTok">—</span></div>
+      <div class="stat-row"><span>Model</span><span class="stat-val" id="statModel">—</span></div>
+    </div>
+
+  </div>
+
+  <!-- TOKEN TABLE -->
+  <div class="card" id="tokenCard" style="display:none">
+    <div class="card-header">
+      <div class="card-label"><span class="dot dot-cyan"></span>Per-Token Breakdown</div>
+    </div>
+    <div id="tokenTable"></div>
+    <div class="steps-box" id="stepsBox"></div>
+  </div>
+
+  <!-- NEXT-TOKEN BAR CHART -->
+  <div class="card" id="nextCard" style="display:none">
+    <div class="card-header">
+      <div class="card-label"><span class="dot dot-purple"></span>Next-Token Predictions</div>
+      <span class="card-hint">Top 10 most likely next tokens</span>
+    </div>
+    <div id="nextBars"></div>
+  </div>
+
+  <!-- TOKENIZER PANEL -->
+  <div class="card" id="tokenizerCard" style="display:none">
+    <div class="card-header">
+      <div class="card-label"><span class="dot dot-green"></span>Tokenizer View</div>
+      <span class="card-hint">How the model splits your text into tokens</span>
+    </div>
+    <div id="tokenizerOut" class="tokenizer-out"></div>
+  </div>
+
+  <!-- HISTORY -->
+  <div class="card" id="historyCard" style="display:none">
+    <div class="card-header">
+      <div class="card-label"><span class="dot dot-orange"></span>Session History</div>
+      <div class="card-actions">
+        <button class="btn-sm" id="exportCsv">Export CSV</button>
+        <button class="btn-sm btn-danger" id="clearHistory">Clear</button>
+      </div>
+    </div>
+    <div class="history-list" id="historyList"></div>
+  </div>
+
+</main>
+
+<!-- ===== TOAST ===== -->
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import { AutoTokenizer, AutoModelForCausalLM, Tensor }
+  from "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3";
+
+const START_TOKEN_ID = 50256;
+let tokenizer = null, model = null, loadedModelId = null;
+
+// ---- Helpers ----
+const $ = id => document.getElementById(id);
+const fmt = x => {
+  if (x === 0) return "0";
+  if (x >= 0.001 && x < 1e6) return Number(x.toPrecision(4)).toString();
+  return x.toExponential(2);
+};
+const showTok = t => t.replace(/ /g, "·").replace(/\n/g, "↵");
+
+function toast(msg, ok = true) {
+  const el = $("toast");
+  el.textContent = msg;
+  el.style.background = ok ? "rgba(0,245,255,.15)" : "rgba(255,60,60,.15)";
+  el.style.borderColor  = ok ? "#00f5ff" : "#ff3c3c";
+  el.style.color = ok ? "#00f5ff" : "#ff3c3c";
+  el.classList.add("show");
+  setTimeout(() => el.classList.remove("show"), 3000);
+}
+
+function setStatus(msg, state = "idle") {
+  $("status").textContent = msg;
+  const dot = $("statusDot");
+  dot.className = "status-dot";
+  if (state === "loading") dot.classList.add("dot-pulse");
+  else if (state === "ready")  dot.classList.add("dot-green-s");
+  else if (state === "error")  dot.classList.add("dot-red");
+}
+
+function setProgress(pct) {
+  if (pct == null) { $("progressWrap").style.display = "none"; return; }
+  $("progressWrap").style.display = "block";
+  $("progressBar").style.width = pct + "%";
+}
+
+// ---- Model loading ----
+async function loadModel(modelId) {
+  if (model && loadedModelId === modelId) return;
+  model = null; tokenizer = null;
+  setStatus("Downloading model… (first time only)", "loading");
+  setProgress(0);
+  tokenizer = await AutoTokenizer.from_pretrained(modelId);
+  model = await AutoModelForCausalLM.from_pretrained(modelId, {
+    dtype: "q8",
+    progress_callback: e => {
+      if (e.status === "progress" && e.file?.endsWith(".onnx"))
+        setProgress(Math.round(e.progress));
+    }
+  });
+  loadedModelId = modelId;
+  setProgress(null);
+  setStatus("Model ready ✓", "ready");
+  $("modelBadge").textContent = modelId.split("/")[1];
+  $("modelBadge").classList.add("badge-ready");
+}
+
+function logSoftmaxRow(data, offset, V) {
+  let max = -Infinity;
+  for (let j = 0; j < V; j++) if (data[offset+j] > max) max = data[offset+j];
+  let sum = 0;
+  for (let j = 0; j < V; j++) sum += Math.exp(data[offset+j] - max);
+  const logZ = max + Math.log(sum);
+  return id => data[offset+id] - logZ;
+}
+
+// ---- Main run ----
+async function run() {
+  const text = $("sentence").value.trim();
+  if (!text) return;
+  const modelId = $("modelSelect").value;
+  $("runBtn").disabled = true;
+  $("runBtn").textContent = "⏳ Processing…";
+  try {
+    await loadModel(modelId);
+    setStatus("Calculating…", "loading");
+
+    const ids = [START_TOKEN_ID, ...tokenizer.encode(text)];
+    const n = ids.length;
+    const input_ids = new Tensor("int64", BigInt64Array.from(ids.map(BigInt)), [1,n]);
+    const attn = new Tensor("int64", new BigInt64Array(n).fill(1n), [1,n]);
+    const { logits } = await model({ input_ids, attention_mask: attn });
+    const V = logits.dims[2], data = logits.data;
+
+    // Per-token rows
+    const rows = [];
+    for (let i = 1; i < n; i++) {
+      const logP = logSoftmaxRow(data, (i-1)*V, V);
+      rows.push({ token: tokenizer.decode([ids[i]]), p: Math.exp(logP(ids[i])) });
+    }
+    const N = rows.length;
+    const sumLog = rows.reduce((s,r) => s - Math.log(r.p), 0);
+    const pp = Math.exp(sumLog / N);
+    const avgLog = -sumLog / N;
+
+    // === Render score card ===
+    $("scoreNumber").textContent = fmt(pp);
+    const quality = pp < 20 ? "Very Predictable" : pp < 100 ? "Natural" : pp < 500 ? "Surprising" : "Very Unusual";
+    $("scoreDesc").textContent = quality;
+    const pct = Math.min(100, (Math.log(pp) / Math.log(10000)) * 100);
+    $("scoreMeter").style.width = pct + "%";
+    $("scoreMeter").style.background = pp < 50 ? "#00f5ff" : pp < 200 ? "#a78bfa" : "#ff6b6b";
+
+    // === Stats card ===
+    const minRow = rows.reduce((a,b) => a.p < b.p ? a : b);
+    const maxRow = rows.reduce((a,b) => a.p > b.p ? a : b);
+    $("statTokens").textContent = N;
+    $("statAvgLog").textContent = avgLog.toFixed(4);
+    $("statMinTok").innerHTML = `<span class="tok-inline">${showTok(minRow.token)}</span> (${fmt(minRow.p)})`;
+    $("statMaxTok").innerHTML = `<span class="tok-inline">${showTok(maxRow.token)}</span> (${fmt(maxRow.p)})`;
+    $("statModel").textContent = modelId.split("/")[1];
+
+    // === Token table ===
+    const maxP = Math.max(...rows.map(r => r.p));
+    let tableHtml = `<div class="token-grid-header">
+      <span>#</span><span>Token</span><span>Probability</span><span>1/P</span><span>Confidence</span>
+    </div>`;
+    rows.forEach((r, i) => {
+      const hue = r.p > 0.1 ? "#00f5ff" : r.p > 0.01 ? "#a78bfa" : "#ff6b6b";
+      const barW = (r.p / maxP * 100).toFixed(1);
+      tableHtml += `<div class="token-grid-row">
+        <span class="row-num">${i+1}</span>
+        <span class="tok-chip">${showTok(r.token)}</span>
+        <span class="row-num">${fmt(r.p)}</span>
+        <span class="row-num">${fmt(1/r.p)}</span>
+        <div class="mini-bar"><div class="mini-fill" style="width:${barW}%;background:${hue}"></div></div>
+      </div>`;
+    });
+    $("tokenTable").innerHTML = tableHtml;
+
+    // Steps explanation
+    const product = Math.exp(sumLog);
+    $("stepsBox").innerHTML = `
+      <div class="step"><span class="step-num">01</span>
+        <span>Multiply all 1/P values → <strong>${fmt(product)}</strong></span></div>
+      <div class="step"><span class="step-num">02</span>
+        <span>Count tokens: N = <strong>${N}</strong></span></div>
+      <div class="step"><span class="step-num">03</span>
+        <span>Take N-th root → <span class="big-score">${fmt(pp)}</span></span></div>
+      <div class="step-conclusion">On average, the model was as uncertain as choosing between <strong>${fmt(pp)}</strong> equally likely tokens.</div>`;
+
+    // === Next-token chart ===
+    const lastLogP = logSoftmaxRow(data, (n-1)*V, V);
+    const probs = [];
+    for (let j = 0; j < V; j++) probs.push([j, Math.exp(lastLogP(j))]);
+    probs.sort((a,b) => b[1]-a[1]);
+    const top = probs.slice(0,10);
+    const topMax = top[0][1];
+    $("nextBars").innerHTML = top.map(([id, p], k) => `
+      <div class="next-row ${k===0?"next-top":""}">
+        <span class="next-rank">#${k+1}</span>
+        <span class="tok-chip">${showTok(tokenizer.decode([id]))}</span>
+        <div class="next-bar-wrap">
+          <div class="next-bar-fill" style="width:${(p/topMax*100).toFixed(1)}%"></div>
+        </div>
+        <span class="next-pct">${(p*100).toFixed(2)}%</span>
+      </div>`).join("");
+
+    // === Tokenizer view ===
+    const tokenIds = tokenizer.encode(text);
+    const colors = ["#00f5ff","#a78bfa","#34d399","#fb923c","#f472b6","#facc15"];
+    $("tokenizerOut").innerHTML = tokenIds.map((id, i) => {
+      const tok = tokenizer.decode([id]);
+      return `<span class="tok-block" style="border-color:${colors[i%colors.length]};color:${colors[i%colors.length]}">
+        <span class="tok-text">${showTok(tok)}</span>
+        <span class="tok-id">${id}</span>
+      </span>`;
+    }).join("");
+
+    // Show all cards
+    ["resultsGrid","tokenCard","nextCard","tokenizerCard"].forEach(id => {
+      $(id).style.display = "";
+      $(id).classList.add("card-enter");
+    });
+
+    // History
+    addHistory(text, pp, rows, modelId);
+    setStatus("Model ready ✓", "ready");
+    toast("Perplexity calculated successfully!");
+
+  } catch (err) {
+    setStatus("Error: " + err.message, "error");
+    toast(err.message, false);
+    console.error(err);
+  }
+  $("runBtn").disabled = false;
+  $("runBtn").innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5,3 19,12 5,21"/></svg> Calculate Perplexity`;
+}
+
+// ---- History ----
+function addHistory(sentence, pp, rows, modelId) {
+  const h = JSON.parse(localStorage.getItem("ppHistory")||"[]");
+  h.unshift({ sentence, pp, tokens: rows.map(r=>r.token), model: modelId, time: Date.now() });
+  localStorage.setItem("ppHistory", JSON.stringify(h.slice(0,50)));
+  renderHistory();
+}
+function renderHistory() {
+  const h = JSON.parse(localStorage.getItem("ppHistory")||"[]");
+  if (!h.length) { $("historyCard").style.display="none"; return; }
+  $("historyCard").style.display = "";
+  $("historyList").innerHTML = h.map((item, i) => `
+    <div class="history-item" data-s="${encodeURIComponent(item.sentence)}">
+      <div class="history-meta">
+        <span class="history-num">#${i+1}</span>
+        <span class="history-model">${item.model.split("/")[1]}</span>
+        <span class="history-time">${new Date(item.time).toLocaleTimeString()}</span>
+      </div>
+      <div class="history-sentence">${item.sentence}</div>
+      <div class="history-score">PP: <strong style="color:#00f5ff">${fmt(item.pp)}</strong></div>
+    </div>`).join("");
+  document.querySelectorAll(".history-item").forEach(el =>
+    el.addEventListener("click", () => {
+      $("sentence").value = decodeURIComponent(el.dataset.s);
+      run();
+    }));
+}
+
+// ---- Chips ----
+document.querySelectorAll(".chip").forEach(c =>
+  c.addEventListener("click", () => { $("sentence").value = c.dataset.s; run(); }));
+
+$("runBtn").addEventListener("click", run);
+$("clearHistory").addEventListener("click", () => {
+  localStorage.removeItem("ppHistory"); renderHistory();
+  toast("History cleared");
+});
+$("exportCsv").addEventListener("click", () => {
+  const h = JSON.parse(localStorage.getItem("ppHistory")||"[]");
+  let csv = "Sentence,Perplexity,Tokens,Model\n";
+  h.forEach(item => {
+    const e = s => `"${s.replace(/"/g,'""')}"`;
+    csv += `${e(item.sentence)},${item.pp},${e(item.tokens.join(" "))},${item.model}\n`;
+  });
+  const a = Object.assign(document.createElement("a"), {
+    href: URL.createObjectURL(new Blob([csv],{type:"text/csv"})),
+    download: "perplexity_history.csv"
+  });
+  a.click();
+  toast("CSV exported!");
+});
+
+renderHistory();
+</script>
+</body>
+</html>
